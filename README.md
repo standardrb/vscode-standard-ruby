@@ -4,6 +4,9 @@ This is the official VS Code extension for [Standard
 Ruby](https://github.com/testdouble/standard), maintained by your friends at
 [Test Double](https://testdouble.com)
 
+Install Standard Ruby from the [Visual Studio
+Marketplace](https://marketplace.visualstudio.com/items?itemName=testdouble.vscode-standard-ruby).
+
 ## Requirements
 
 * This extension requires version 1.24.2 of the [standard
