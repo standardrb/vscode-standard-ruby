@@ -9,6 +9,6 @@ $ yarn vsce login testdouble
 Next, you should just need to run:
 
 ```
-$ yarn publish
+$ yarn run vsce:publish
 ```
 
