@@ -3,7 +3,6 @@ import { statSync } from 'fs'
 import { homedir } from 'os'
 import * as path from 'path'
 import { satisfies } from 'semver'
-import { promisify } from 'util'
 import {
   Diagnostic,
   DiagnosticSeverity,
@@ -29,12 +28,50 @@ import {
   RevealOutputChannelOn
 } from 'vscode-languageclient/node'
 
-const promiseExec = promisify(exec)
+class ExecError extends Error {
+  command: string
+  options: object
+  code: number | undefined
+  stdout: string
+  stderr: string
+
+  constructor (message: string, command: string, options: object, code: number | undefined, stdout: string, stderr: string) {
+    super(message)
+    this.command = command
+    this.options = options
+    this.code = code
+    this.stdout = stdout
+    this.stderr = stderr
+  }
+
+  log (): void {
+    log(`Command \`${this.command}\` failed with exit code ${this.code ?? '?'} (exec options: ${JSON.stringify(this.options)})`)
+    if (this.stdout.length > 0) {
+      log(`stdout:\n${this.stdout}`)
+    }
+    if (this.stderr.length > 0) {
+      log(`stderr:\n${this.stderr}`)
+    }
+  }
+}
+
+const promiseExec = async function (command: string, options = { cwd: getCwd() }): Promise<{ stdout: string, stderr: string }> {
+  return await new Promise((resolve, reject) => {
+    exec(command, options, (error, stdout, stderr) => {
+      stdout = stdout.toString().trim()
+      stderr = stderr.toString().trim()
+      if (error != null) {
+        reject(new ExecError(error.message, command, options, error.code, stdout, stderr))
+      } else {
+        resolve({ stdout, stderr })
+      }
+    })
+  })
+}
 
 export let languageClient: LanguageClient | null = null
 let outputChannel: OutputChannel | undefined
 let statusBarItem: StatusBarItem | undefined
-let enableExtension: boolean = true
 let diagnosticCache: Map<String, Diagnostic[]> = new Map()
 
 function getCwd (): string {
@@ -47,6 +84,10 @@ function log (s: string): void {
 
 function getConfig<T> (key: string): T | undefined {
   return workspace.getConfiguration('standardRuby').get<T>(key)
+}
+
+function supportedLanguage (languageId: string): boolean {
+  return languageId === 'ruby' || languageId === 'gemfile'
 }
 
 function registerCommands (): Disposable[] {
@@ -63,52 +104,88 @@ function registerWorkspaceListeners (): Disposable[] {
   return [
     workspace.onDidChangeConfiguration(async event => {
       if (event.affectsConfiguration('standardRuby')) {
-        enableExtension = await determineWhetherToEnableExtension()
-        if (enableExtension) {
-          await restartLanguageServer()
-        } else {
-          await stopLanguageServer()
-        }
+        await restartLanguageServer()
       }
     })
   ]
 }
 
-async function determineWhetherToEnableExtension (): Promise<boolean> {
-  let shouldEnable
+export enum BundleStatus {
+  valid = 1,
+  missing = 0,
+  errored = 4
+}
+
+export enum StandardBundleStatus {
+  included = 2,
+  excluded = 3,
+  errored = 4
+}
+
+async function isValidBundlerProject (): Promise<BundleStatus> {
+  try {
+    await promiseExec('bundle list --name-only', { cwd: getCwd() })
+    return BundleStatus.valid
+  } catch (e) {
+    if (!(e instanceof ExecError)) return BundleStatus.errored
+
+    if (e.stderr.startsWith('Could not locate Gemfile')) {
+      log('No Gemfile found in the current workspace')
+      return BundleStatus.missing
+    } else {
+      e.log()
+      log('Failed to invoke Bundler in the current workspace')
+      return BundleStatus.errored
+    }
+  }
+}
+
+async function isInBundle (): Promise<StandardBundleStatus> {
+  try {
+    await promiseExec('bundle show standard', { cwd: getCwd() })
+    return StandardBundleStatus.included
+  } catch (e) {
+    if (!(e instanceof ExecError)) return StandardBundleStatus.errored
+
+    if (e.stderr === 'Could not find gem \'standard\'.') {
+      return StandardBundleStatus.excluded
+    } else {
+      e.log()
+      log('Failed to invoke Bundler in the current workspace')
+      return StandardBundleStatus.errored
+    }
+  }
+}
+
+async function shouldEnableIfBundleIncludesStandard (): Promise<boolean> {
+  const standardStatus = await isInBundle()
+  if (standardStatus === StandardBundleStatus.excluded) {
+    log('Disabling Standard Ruby extension, because standard isn\'t included in the bundle')
+  }
+  return standardStatus === StandardBundleStatus.included
+}
+
+async function shouldEnableExtension (): Promise<boolean> {
+  let bundleStatus
   switch (getConfig<string>('mode')) {
     case 'enableUnconditionally':
       return true
     case 'enableViaGemfileOrMissingGemfile':
-      if (await isValidBundlerProject()) {
-        shouldEnable = await isInBundle()
-        if (!shouldEnable) {
-          log('Disabling Standard Ruby extension, because a Gemfile was found but standard is not installed in the bundle  (ran `bundle show standard`)')
-        }
-        return shouldEnable
+      bundleStatus = await isValidBundlerProject()
+      if (bundleStatus === BundleStatus.valid) {
+        return await shouldEnableIfBundleIncludesStandard()
       } else {
-        return true
+        return bundleStatus === BundleStatus.missing
       }
     case 'enableViaGemfile':
-      shouldEnable = await isInBundle()
-      if (!shouldEnable) {
-        log('Disabling Standard Ruby extension, because standard is not installed in the bundle (ran `bundle show standard`)')
-      }
-      return shouldEnable
+      return await shouldEnableIfBundleIncludesStandard()
+    case 'onlyRunGlobally':
+      return true
     case 'disable':
       return false
     default:
       log('Invalid value for standardRuby.mode')
       return false
-  }
-}
-
-async function isValidBundlerProject (): Promise<boolean> {
-  try {
-    await promiseExec('bundle list --name-only', { cwd: getCwd() })
-    return true
-  } catch {
-    return false
   }
 }
 
@@ -149,19 +226,10 @@ function getCustomCommand (): string | undefined {
   }
 }
 
-async function isInBundle (): Promise<boolean> {
-  try {
-    await promiseExec('bundle show standard', { cwd: getCwd() })
-    return true
-  } catch {
-    return false
-  }
-}
-
 async function getCommand (): Promise<string | undefined> {
   if (hasCustomizedCommandPath()) {
     return getCustomCommand()
-  } else if (await isInBundle()) {
+  } else if (getConfig<string>('mode') !== 'onlyRunGlobally' && await isInBundle() === StandardBundleStatus.included) {
     return 'bundle exec standardrb'
   } else {
     return 'standardrb'
@@ -181,7 +249,8 @@ async function supportedVersionOfStandard (command: string): Promise<boolean> {
       await displayError(`Unsupported standard version: ${version} (${requiredGemVersion} required)`, ['Show Output'])
       return false
     }
-  } catch {
+  } catch (e) {
+    if (e instanceof ExecError) e.log()
     log('Failed to verify the version of standard installed, proceeding anyway…')
     return true
   }
@@ -214,7 +283,10 @@ function buildLanguageClientOptions (): LanguageClientOptions {
     revealOutputChannelOn: RevealOutputChannelOn.Never,
     outputChannel,
     synchronize: {
-      fileEvents: [workspace.createFileSystemWatcher('**/.standard.yml')]
+      fileEvents: [
+        workspace.createFileSystemWatcher('**/.standard.yml'),
+        workspace.createFileSystemWatcher('**/Gemfile.lock')
+      ]
     },
     middleware: {
       provideDocumentFormattingEdits: (document, options, token, next): ProviderResult<TextEdit[]> => {
@@ -260,7 +332,7 @@ async function displayError (message: string, actions: string[]): Promise<void> 
 
 async function syncOpenDocumentsWithLanguageServer (languageClient: LanguageClient): Promise<void> {
   for (const textDocument of workspace.textDocuments) {
-    if (textDocument.languageId === 'ruby') {
+    if (supportedLanguage(textDocument.languageId)) {
       await languageClient.sendNotification(
         DidOpenTextDocumentNotification.type,
         languageClient.code2ProtocolConverter.asOpenTextDocumentParams(textDocument)
@@ -270,9 +342,9 @@ async function syncOpenDocumentsWithLanguageServer (languageClient: LanguageClie
 }
 
 async function handleActiveTextEditorChange (editor: TextEditor | undefined): Promise<void> {
-  if (languageClient == null || editor == null || editor.document.languageId !== 'ruby') return
+  if (languageClient == null || editor == null) return
 
-  if (!diagnosticCache.has(editor.document.uri.toString())) {
+  if (supportedLanguage(editor.document.languageId) && !diagnosticCache.has(editor.document.uri.toString())) {
     await languageClient.sendNotification(
       DidOpenTextDocumentNotification.type,
       languageClient.code2ProtocolConverter.asOpenTextDocumentParams(editor.document)
@@ -288,7 +360,7 @@ async function afterStartLanguageServer (languageClient: LanguageClient): Promis
 }
 
 async function startLanguageServer (): Promise<void> {
-  if (languageClient != null) return
+  if (languageClient != null || !(await shouldEnableExtension())) return
 
   try {
     languageClient = await createLanguageClient()
@@ -320,7 +392,7 @@ async function restartLanguageServer (): Promise<void> {
 
 async function formatAutoFixes (): Promise<void> {
   const editor = window.activeTextEditor
-  if (editor == null || languageClient == null || editor.document.languageId !== 'ruby') return
+  if (editor == null || languageClient == null || !supportedLanguage(editor.document.languageId)) return
 
   try {
     await languageClient.sendRequest(ExecuteCommandRequest.type, {
@@ -347,7 +419,7 @@ function updateStatusBar (): void {
   if (statusBarItem == null) return
   const editor = window.activeTextEditor
 
-  if (languageClient == null || editor == null || editor.document.languageId !== 'ruby') {
+  if (languageClient == null || editor == null || !supportedLanguage(editor.document.languageId)) {
     statusBarItem.hide()
   } else {
     const diagnostics = diagnosticCache.get(editor.document.uri.toString())
@@ -400,9 +472,7 @@ export async function activate (context: ExtensionContext): Promise<void> {
     ...registerWorkspaceListeners()
   )
 
-  if (await determineWhetherToEnableExtension()) {
-    await startLanguageServer()
-  }
+  await startLanguageServer()
 }
 
 export async function deactivate (): Promise<void> {
