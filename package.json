@@ -1,0 +1,141 @@
+{
+  "name": "vscode-standard-ruby",
+  "displayName": "Standard Ruby",
+  "description": "The official VS Code extension for the Standard Ruby linter and code formatter.",
+  "icon": "standard-ruby.png",
+  "version": "0.0.1",
+  "publisher": "testdouble",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/testdouble/vscode-standard-ruby.git"
+  },
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/testdouble/vscode-standard-ruby/issues"
+  },
+  "packageManager": "yarn@1.22.19",
+  "engines": {
+    "vscode": "^1.75.0"
+  },
+  "keywords": [
+    "ruby",
+    "standard",
+    "style",
+    "lint",
+    "format",
+    "fix",
+    "rubocop",
+    "language-server"
+  ],
+  "activationEvents": [
+    "onLanguage:ruby",
+    "workspaceContains:Gemfile.lock"
+  ],
+  "main": "./out/extension",
+  "contributes": {
+    "commands": [
+      {
+        "command": "standardRuby.start",
+        "title": "Standard Ruby: Start Language Server"
+      },
+      {
+        "command": "standardRuby.stop",
+        "title": "Standard Ruby: Stop Language Server"
+      },
+      {
+        "command": "standardRuby.restart",
+        "title": "Standard Ruby: Restart Language Server"
+      },
+      {
+        "command": "standardRuby.formatAutoFixes",
+        "title": "Standard Ruby: Format with Automatic Fixes"
+      },
+      {
+        "command": "standardRuby.showOutputChannel",
+        "title": "Standard Ruby: Show Output Channel"
+      }
+    ],
+    "configuration": [
+      {
+        "type": "object",
+        "title": "Standard Ruby",
+        "properties": {
+          "standardRuby.mode": {
+            "order": 1,
+            "type": "string",
+            "default": "enableViaGemfileOrMissingGemfile",
+            "enum": [
+              "enableUnconditionally",
+              "enableViaGemfileOrMissingGemfile",
+              "enableViaGemfile",
+              "disable"
+            ],
+            "enumItemLabels": [
+              "Always run—whether via Bundler or globally",
+              "Run unless a bundle excludes standard",
+              "Run only via Bundler, never globally",
+              "Disable the extension"
+            ],
+            "markdownEnumDescriptions": [
+              "Enable Standard Ruby via the workspace's Gemfile or else fall back on a global installation",
+              "Enable Standard Ruby via the workspace's Gemfile or else fall back on a global installation **unless** a Gemfile is present and its bundle does not include `standard`",
+              "Enable Standard Ruby only if the workspace's Gemfile includes `standard` and _do not_ fall back on a global installation",
+              "Disable the Standard Ruby extension entirely"
+            ]
+          },
+          "standardRuby.autofix": {
+            "order": 2,
+            "type": "boolean",
+            "default": true,
+            "description": "Automatically format code and fix Standard Ruby errors"
+          },
+          "standardRuby.commandPath": {
+            "order": 3,
+            "type": "string",
+            "default": "",
+            "markdownDescription": "Absolute path to standardrb executable. Overrides default search order and, if missing, will not run Standard via Bundler or a global installation of `standard`.\n\nSupports variables `${userHome}`, `${pathSeparator}`, and `${cwd}`"
+          }
+        }
+      }
+    ]
+  },
+  "scripts": {
+    "clean": "rm -rf ./out",
+    "compile": "yarn run esbuild-base --sourcemap",
+    "esbuild-base": "esbuild --bundle --external:vscode --external:vscode-languageclient --format=cjs --outfile=out/extension.js --platform=node src/extension.ts",
+    "lint": "ts-standard --fix",
+    "package": "vsce package --no-yarn --githubBranch main",
+    "publish": "vsce publish --no-yarn --githubBranch main",
+    "test": "node ./out/test/runTest.js",
+    "test-compile": "tsc -p ./",
+    "test-watch": "tsc --watch -p ./",
+    "vscode:prepublish": "yarn run esbuild-base -- --minify",
+    "watch": "yarn run esbuild-base --sourcemap --watch"
+  },
+  "dependencies": {
+    "semver": "^7.3.8",
+    "vscode-languageclient": "8.0.2"
+  },
+  "devDependencies": {
+    "@types/glob": "^8.0.0",
+    "@types/mocha": "^10.0.0",
+    "@types/node": "^18.0.0",
+    "@types/vscode": "^1.68.0",
+    "@vscode/test-electron": "^2.2.0",
+    "@vscode/vsce": "^2.9.2",
+    "esbuild": "^0.17.6",
+    "glob": "^8.0.3",
+    "mocha": "^10.0.0",
+    "ts-standard": "^12.0.2",
+    "typescript": "^4.7.4"
+  },
+  "ts-standard": {
+    "project": "./tsconfig.json",
+    "ignore": [
+      "out"
+    ],
+    "env": [
+      "node"
+    ]
+  }
+}
