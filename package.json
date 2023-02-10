@@ -101,7 +101,7 @@
   },
   "scripts": {
     "clean": "rm -rf ./out",
-    "esbuild-base": "esbuild --bundle --external:vscode --external:vscode-languageclient --format=cjs --outfile=out/extension.js --platform=node src/extension.ts",
+    "esbuild-base": "esbuild --bundle --external:vscode --format=cjs --outfile=out/extension.js --platform=node src/extension.ts",
     "compile": "yarn run esbuild-base --sourcemap",
     "watch": "yarn run esbuild-base --sourcemap --watch",
     "lint": "ts-standard --fix",
