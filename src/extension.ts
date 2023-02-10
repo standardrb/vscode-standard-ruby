@@ -2,7 +2,7 @@ import { exec } from 'child_process'
 import { statSync } from 'fs'
 import { homedir } from 'os'
 import * as path from 'path'
-import * as semver from 'semver'
+import { satisfies } from 'semver'
 import { promisify } from 'util'
 import {
   Diagnostic,
@@ -173,7 +173,7 @@ async function supportedVersionOfStandard (command: string): Promise<boolean> {
   try {
     const { stdout } = await promiseExec(`${command} -v`)
     const version = stdout.trim()
-    if (semver.satisfies(version, requiredGemVersion)) {
+    if (satisfies(version, requiredGemVersion)) {
       return true
     } else {
       log('Disabling extension because the extension does not support this version of the standard gem.')
