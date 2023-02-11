@@ -20,10 +20,10 @@
   "keywords": [
     "ruby",
     "standard",
-    "style",
-    "lint",
-    "format",
-    "fix",
+    "style-guide",
+    "linter",
+    "formatter",
+    "autofix",
     "rubocop",
     "language-server"
   ],
