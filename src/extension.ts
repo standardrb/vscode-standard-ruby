@@ -236,7 +236,7 @@ async function getCommand (): Promise<string | undefined> {
   }
 }
 
-const requiredGemVersion = '>= 1.24.2'
+const requiredGemVersion = '>= 1.24.3'
 async function supportedVersionOfStandard (command: string): Promise<boolean> {
   try {
     const { stdout } = await promiseExec(`${command} -v`)
@@ -244,7 +244,7 @@ async function supportedVersionOfStandard (command: string): Promise<boolean> {
     if (satisfies(version, requiredGemVersion)) {
       return true
     } else {
-      log('Disabling extension because the extension does not support this version of the standard gem.')
+      log('Disabling because the extension does not support this version of the standard gem.')
       log(`  Version reported by \`${command} -v\`: ${version} (${requiredGemVersion} required)`)
       await displayError(`Unsupported standard version: ${version} (${requiredGemVersion} required)`, ['Show Output'])
       return false

@@ -9,7 +9,7 @@ Marketplace](https://marketplace.visualstudio.com/items?itemName=testdouble.vsco
 
 ## Requirements
 
-* This extension requires version 1.24.2 of the [standard
+* This extension requires version 1.24.3 of the [standard
   gem](https://rubygems.org/gems/standard)
 * This extension requires version 1.75.0 of [VS Code](https://code.visualstudio.com) or higher
 
