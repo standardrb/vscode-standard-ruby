@@ -111,15 +111,15 @@ function registerWorkspaceListeners (): Disposable[] {
 }
 
 export enum BundleStatus {
-  valid = 1,
-  missing = 0,
-  errored = 4
+  valid = 0,
+  missing = 1,
+  errored = 2
 }
 
 export enum StandardBundleStatus {
-  included = 2,
-  excluded = 3,
-  errored = 4
+  included = 0,
+  excluded = 1,
+  errored = 2
 }
 
 async function isValidBundlerProject (): Promise<BundleStatus> {
