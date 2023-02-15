@@ -134,7 +134,7 @@ async function isValidBundlerProject (): Promise<BundleStatus> {
       return BundleStatus.missing
     } else {
       e.log()
-      log('Failed to invoke Bundler in the current workspace')
+      log('Failed to invoke Bundler in the current workspace. After resolving the issue, run the command `Standard Ruby: Start Language Server`')
       return BundleStatus.errored
     }
   }
@@ -151,7 +151,7 @@ async function isInBundle (): Promise<StandardBundleStatus> {
       return StandardBundleStatus.excluded
     } else {
       e.log()
-      log('Failed to invoke Bundler in the current workspace')
+      log('Failed to invoke Bundler in the current workspace. After resolving the issue, run the command `Standard Ruby: Start Language Server`')
       return StandardBundleStatus.errored
     }
   }
