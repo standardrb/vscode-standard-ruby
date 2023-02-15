@@ -3,7 +3,7 @@
   "displayName": "Standard Ruby",
   "description": "The official VS Code extension for the Standard Ruby linter and code formatter.",
   "icon": "standard-ruby.png",
-  "version": "0.0.10",
+  "version": "0.0.11",
   "publisher": "testdouble",
   "repository": {
     "type": "git",
@@ -100,7 +100,7 @@
             "order": 3,
             "type": "string",
             "default": "",
-            "markdownDescription": "Absolute path to standardrb executable. Overrides default search order and, if missing, will not run Standard via Bundler or a global installation of `standard`.\n\nSupports variables `${userHome}`, `${pathSeparator}`, and `${cwd}`"
+            "markdownDescription": "Absolute path to standardrb executable. Overrides default search order and, if missing, will not run Standard via Bundler or a `standardrb` executable on your PATH.\n\nSupports variables `${userHome}`, `${pathSeparator}`, and `${cwd}`"
           }
         }
       }
