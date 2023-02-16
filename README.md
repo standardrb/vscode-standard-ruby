@@ -18,25 +18,27 @@ Marketplace](https://marketplace.visualstudio.com/items?itemName=testdouble.vsco
 The extension only offers a few options, but because it can interact with other
 extensions that conform to the [VS Code Formatting
 API](https://code.visualstudio.com/blogs/2016/11/15/formatters-best-practices#_the-formatting-api),
-it's best to discuss the relevant general editor settings that can impact the
-extension's behavior and as its own configuration properties separately.
+several general editor settings can impact the extension's behavior as well as
+its own configuration properties.
 
 ## Configuring the VS Code editor to use Standard Ruby
 
-Even though `standardrb` is a single command, it performs two actions that are
-treated separately in this extension: publishing diagnostics (lint rules) and
-formatting documents.
-
-To automatically format your Ruby with this extension, first set
-`editor.formatOnSave` in your settings JSON or by checking this box in the GUI
-settings:
+To automatically format your Ruby with Standard Ruby, check this box in the
+editor's settings:
 
 ![Format a file on save. A formatter must be available, the file must not be saved after delay, and the editor must not be shutting down.](/docs/format-on-save.png)
 
-Next, if you have multiple extensions installed that provide formatting for Ruby
-files (it's okay if you're not sure—it's hard to if one does), you can
-definitively disambiguate that Standard is your formatter of choice by adding
-this to your JSON settings:
+Or, in `settings.json`:
+
+```json
+"editor.formatOnSave": true,
+```
+
+Next, if you have installed multiple extensions that provide formatting for Ruby
+files (it's okay if you're not sure—it's hard to tell if an extension includes a
+formatter), you can explicitly declare that Standard is your formatter of choice
+by setting `editor.defaultFormatter` under a `"[ruby]"` section of
+`settings.json` like this:
 
 ```json
 "[ruby]": {
@@ -46,8 +48,8 @@ this to your JSON settings:
 
 ## Configuring Standard Ruby extension options
 
-To edit Standard Ruby's configuration, via the GUI, expand **Extensions** and
-select **Standard Ruby** in the sidebar.
+To edit Standard Ruby's configuration, first expand **Extensions** and select
+**Standard Ruby** in the sidebar of the Settings editor.
 
 ### Mode
 
@@ -62,7 +64,7 @@ and—if it will—which `standardrb` executable will be launched.
 * "Always run—whether via Bundler or globally" (JSON: `enableUnconditionally`)
   this mode will first attempt to run via Bundler, but if that fails for any
   reason, it will attempt to run `standardrb` in your PATH
-* **Default** "Run unless the bundle excludes standard" (JSON:
+* **[Default]** "Run unless the bundle excludes standard" (JSON:
   `enableViaGemfileOrMissingGemfile`) this mode will attempt to run Standard via
   Bundler, but if a bundle exists and Standard isn't in it (i.e. the project
   doesn't use Standard), the extension will disable itself. If, however, no
