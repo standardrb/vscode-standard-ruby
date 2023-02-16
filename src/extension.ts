@@ -125,7 +125,9 @@ export enum StandardBundleStatus {
 async function displayBundlerError (e: ExecError): Promise<void> {
   e.log()
   log('Failed to invoke Bundler in the current workspace. After resolving the issue, run the command `Standard Ruby: Start Language Server`')
-  await displayError('Failed to run Bundler while initializing Standard Ruby', ['Show Output'])
+  if (getConfig<string>('mode') !== 'enableUnconditionally') {
+    await displayError('Failed to run Bundler while initializing Standard Ruby', ['Show Output'])
+  }
 }
 
 async function isValidBundlerProject (): Promise<BundleStatus> {
