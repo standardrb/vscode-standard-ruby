@@ -122,6 +122,12 @@ export enum StandardBundleStatus {
   errored = 2
 }
 
+async function displayBundlerError (e: ExecError): Promise<void> {
+  e.log()
+  log('Failed to invoke Bundler in the current workspace. After resolving the issue, run the command `Standard Ruby: Start Language Server`')
+  await displayError('Failed to run Bundler while initializing Standard Ruby', ['Show Output'])
+}
+
 async function isValidBundlerProject (): Promise<BundleStatus> {
   try {
     await promiseExec('bundle list --name-only', { cwd: getCwd() })
@@ -133,8 +139,7 @@ async function isValidBundlerProject (): Promise<BundleStatus> {
       log('No Gemfile found in the current workspace')
       return BundleStatus.missing
     } else {
-      e.log()
-      log('Failed to invoke Bundler in the current workspace. After resolving the issue, run the command `Standard Ruby: Start Language Server`')
+      await displayBundlerError(e)
       return BundleStatus.errored
     }
   }
@@ -150,8 +155,7 @@ async function isInBundle (): Promise<StandardBundleStatus> {
     if (e.stderr === 'Could not find gem \'standard\'.') {
       return StandardBundleStatus.excluded
     } else {
-      e.log()
-      log('Failed to invoke Bundler in the current workspace. After resolving the issue, run the command `Standard Ruby: Start Language Server`')
+      await displayBundlerError(e)
       return StandardBundleStatus.errored
     }
   }
