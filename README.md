@@ -86,7 +86,7 @@ possible, and fall back on searching for a global `standardrb` bin in your
 Or, in `settings.json`:
 
 ```json
-  "standardRuby.mode": "enableViaGemfile",
+"standardRuby.mode": "enableViaGemfile",
 ```
 
 ### standardRuby.autofix
@@ -104,7 +104,7 @@ all languages, it's more straightforward to uncheck this extension setting.
 Or, in `settings.json`:
 
 ```json
-  "standardRuby.autofix": true,
+"standardRuby.autofix": true,
 ```
 
 ### standardRuby.commandPath
