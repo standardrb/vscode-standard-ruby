@@ -152,7 +152,7 @@ async function isInBundle (): Promise<StandardBundleStatus> {
   } catch (e) {
     if (!(e instanceof ExecError)) return StandardBundleStatus.errored
 
-    if (e.stderr === 'Could not find gem \'standard\'.') {
+    if (e.stderr.startsWith('Could not locate Gemfile') || e.stderr === 'Could not find gem \'standard\'.') {
       return StandardBundleStatus.excluded
     } else {
       await displayBundlerError(e)
