@@ -4,27 +4,31 @@ This is the official VS Code extension for [Standard
 Ruby](https://github.com/testdouble/standard), maintained by your friends at
 [Test Double](https://testdouble.com)
 
-Install Standard Ruby from the [Visual Studio
+You can install Standard Ruby from the [Visual Studio
 Marketplace](https://marketplace.visualstudio.com/items?itemName=testdouble.vscode-standard-ruby).
 
 ## Requirements
 
-* This extension requires version 1.24.3 of the [standard
-  gem](https://rubygems.org/gems/standard)
-* This extension requires version 1.75.0 of [VS Code](https://code.visualstudio.com) or higher
+* Version 1.24.3 of the [standard
+gem](https://rubygems.org/gems/standard)
+* Version 1.75.0 of [VS Code](https://code.visualstudio.com) or higher
 
-# Configuration
+## Configuration
 
-The extension only offers a few options, but because it can interact with other
-extensions that conform to the [VS Code Formatting
+The extension only offers a few of its own configuration options, but because it
+conforms to the [VS Code Formatting
 API](https://code.visualstudio.com/blogs/2016/11/15/formatters-best-practices#_the-formatting-api),
-several general editor settings can impact the extension's behavior as well as
-its own configuration properties.
+several general editor settings can impact the extension's behavior as well.
 
 ## Configuring the VS Code editor to use Standard Ruby
 
-To automatically format your Ruby with Standard Ruby, check this box in the
-editor's settings:
+There are two general editor settings that you'll want to verify are set in
+order to use Standard Ruby as your formatter.
+
+### editor.formatOnSave
+
+To automatically format your Ruby with Standard Ruby, check **Format on Save** in the
+**Formatting** settings under **Text Editor**:
 
 ![Format a file on save. A formatter must be available, the file must not be saved after delay, and the editor must not be shutting down.](/docs/format-on-save.png)
 
@@ -34,50 +38,50 @@ Or, in `settings.json`:
 "editor.formatOnSave": true,
 ```
 
+### editor.defaultFormatter
+
 Next, if you have installed multiple extensions that provide formatting for Ruby
-files (it's okay if you're not sure—it's hard to tell if an extension includes a
-formatter), you can explicitly declare that Standard is your formatter of choice
-by setting `editor.defaultFormatter` under a `"[ruby]"` section of
-`settings.json` like this:
+files (it's okay if you're not sure—it can be hard to tell), you can specify
+Standard as your formatter of choice by setting `editor.defaultFormatter` under
+a `"[ruby]"` section of `settings.json` like this:
 
 ```json
 "[ruby]": {
-    "editor.defaultFormatter": "testdouble.vscode-standard-ruby"
+  "editor.defaultFormatter": "testdouble.vscode-standard-ruby"
 },
 ```
 
 ## Configuring Standard Ruby extension options
 
-To edit Standard Ruby's configuration, first expand **Extensions** and select
-**Standard Ruby** in the sidebar of the Settings editor.
+To edit Standard Ruby's own options, first expand **Extensions** and select
+**Standard Ruby** from the sidebar of the Settings editor.
 
-### Mode
+### standardRuby.mode
 
-The most important setting in the extension is the operation mode
-(`standardRuby.mode` in JSON).
+The Mode setting determines how (and whether) Standard Ruby runs in a given
+workspace. Generally, it will try to execute `standardrb` via `bundle exec` if
+possible, and fall back on searching for a global `standardrb` bin in your
+`PATH`.
 
 ![Enable Standard Ruby via the workspace's Gemfile or else fall back on a global installation unless a Gemfile is present and its bundle does not include standard](/docs/mode.png)
 
-This setting will determine whether the extension will run in a given workspace
-and—if it will—which `standardrb` executable will be launched.
-
-* "Always run—whether via Bundler or globally" (JSON: `enableUnconditionally`)
+* _"Always run—whether via Bundler or globally"_ (JSON: `enableUnconditionally`)
   this mode will first attempt to run via Bundler, but if that fails for any
   reason, it will attempt to run `standardrb` in your PATH
-* **[Default]** "Run unless the bundle excludes standard" (JSON:
+* **[Default]** _"Run unless the bundle excludes standard"_ (JSON:
   `enableViaGemfileOrMissingGemfile`) this mode will attempt to run Standard via
-  Bundler, but if a bundle exists and Standard isn't in it (i.e. the project
-  doesn't use Standard), the extension will disable itself. If, however, no
-  bundle is present in the workspace, it will fall back on any `standardrb`
-  executable in your PATH
-* "Run only via Bundler, never globally" (JSON: `enableViaGemfile`) the same as
+  Bundler, but if a bundle exists and the `standard` gem isn't in it (i.e. you're
+  working in a project doesn't use Standard), the extension will disable itself.
+  If, however, no bundle is present in the workspace, it will fall back on the
+  first `standardrb` executable in your PATH
+* _"Run only via Bundler, never globally"_ (JSON: `enableViaGemfile`) the same as
   the default `enableViaGemfileOrMissingGemfile`, but will never run
-  `standardrb` on your PATH (as a result, standalone editors and workspace
-  folders without a Gemfile will effectively never activate the extension)
-* "Run only globally, never via Bundler" (JSON: `onlyRunGlobally`) if you want
+  `standardrb` from your PATH (as a result, single-file windows and workspace
+  folders without a Gemfile may never activate the extension)
+* _"Run only globally, never via Bundler"_ (JSON: `onlyRunGlobally`) if you want
   to avoid running the bundled version of Standard, this mode will never
   interact with Bundler and will only run `standardrb` on your PATH
-* "Disable the extension" (JSON: `disable`) disable the extension entirely
+* _"Disable the extension"_ (JSON: `disable`) disable the extension entirely
 
 Or, in `settings.json`:
 
@@ -85,7 +89,7 @@ Or, in `settings.json`:
   "standardRuby.mode": "enableViaGemfile",
 ```
 
-### Auto-fix
+### standardRuby.autofix
 
 The auto-fix option does what it says on the tin. if you don't want Standard to
 automatically edit your documents on save, you can disable it here:
@@ -94,8 +98,8 @@ automatically edit your documents on save, you can disable it here:
 
 You might want to disable this if you're using Standard to highlight problems
 but don't want it to edit your files automatically. You could also accomplish
-this by disabling `editor.formatOnSave`, but as it's a global setting across all
-languages, it's more straightforward to disable it as an extension setting.
+this by disabling `editor.formatOnSave`, but as that's a global setting across
+all languages, it's more straightforward to uncheck this extension setting.
 
 Or, in `settings.json`:
 
@@ -103,11 +107,13 @@ Or, in `settings.json`:
   "standardRuby.autofix": true,
 ```
 
-### Command path
+### standardRuby.commandPath
 
 As described above, the extension contains logic to determine which version of
 `standardrb` to launch. If you want a specific binary to run instead, you can
 set it here.
+
+![Command Path](/docs/command-path.png)
 
 This will override whatever search strategy is set in `standardRuby.mode`
 (except for `disable`, in which case the extension will remain disabled).
@@ -122,8 +128,8 @@ Or, in `settings.json`:
 
 ### Changing settings only for a specific project
 
-You may want to change a setting only for certain projects, in which case it
-will likely make the most sense to configure it in the [Workspace
+You may want to apply certain settings to a specific project, which you can do
+by configuring them in the [Workspace
 scope](https://code.visualstudio.com/docs/getstarted/settings#_workspace-settings)
 as opposed to the global User scope.
 
@@ -131,7 +137,7 @@ as opposed to the global User scope.
 
 Clicking "Workspace" before changing a setting will save it to
 `.vscode/settings.json` inside the root workspace directory and will not affect
-the extension's behavior in other workspaces.
+the extension's behavior in other workspace folders.
 
 ## Manually triggering a format with automatic fixes
 
@@ -188,18 +194,18 @@ Clicking the status bar item will open the problems tab:
 
 ## Limitations
 
-There's some room for improvement yet, but it wasn't clear how necessary whether
-these limitations would be a big deal in practice:
+There's some room for improvement yet, but it isn't yet clear whether these
+limitations will be a big deal in practice:
 
 * The extension will only launch a single instance of `standardrb --lsp` per
   workspace. If you're using a [multi-root
   workspace](https://code.visualstudio.com/docs/editor/multi-root-workspaces),
-  they'll all get whatever Standard version is used by the first one
+  they'll all be handled by whatever Standard version is found in the first one
 * Standard's LSP only supports "Full" [text document
   synchronization](https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#textDocument_synchronization),
   both because it seemed hard to implement incremental sync correctly and
-  because passing RuboCop's runner a partial document would result in
-  inconsistent behavior
+  because attempting to pass RuboCop's runner a partial document would result in
+  inconsistent formatting results
 
 ## Acknowledgements
 
