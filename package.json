@@ -3,7 +3,7 @@
   "displayName": "Standard Ruby",
   "description": "The official VS Code extension for the Standard Ruby linter and code formatter.",
   "icon": "standard-ruby.png",
-  "version": "0.0.12",
+  "version": "0.0.13",
   "publisher": "testdouble",
   "repository": {
     "type": "git",
