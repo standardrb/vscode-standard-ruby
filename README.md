@@ -99,7 +99,7 @@ Or, in `settings.json`:
 
 ```json
   "standardRuby.autofix": true,
-``
+```
 
 ### Command path
 
@@ -120,7 +120,7 @@ Or, in `settings.json`:
 
 ### Changing settings only for a specific project
 
-You may want to change a setting only for a specific project, in which case it
+You may want to change a setting only for certain projects, in which case it
 will likely make the most sense to configure it in the [Workspace
 scope](https://code.visualstudio.com/docs/getstarted/settings#_workspace-settings)
 as opposed to the global User scope.
@@ -158,6 +158,31 @@ Or, in `keybindings.json`:
   }
 ]
 ```
+
+## Decoding the Status Bar item
+
+The extension also includes a status bar item to convey the status of the
+current file listing at a glance.
+
+When the file conforms to Standard without issue:
+
+![Status: no issues](/docs/status-ok.png)
+
+When the file contains a low-severity formatting issue:
+
+![Status: info](/docs/status-info.png)
+
+When the file contains a normal linter error:
+
+![Status: info](/docs/status-warn.png)
+
+When the file fails to parse at all:
+
+![Status: parse failure](/docs/status-parse-fail.png)
+
+Clicking the status bar item will open the problems tab:
+
+![Problems tab](/docs/problems.png)
 
 ## Limitations
 
