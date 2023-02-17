@@ -444,22 +444,18 @@ function updateStatusBar (): void {
       if (errorCount > 0) {
         statusBarItem.tooltip = `Standard Ruby: ${errorCount === 1 ? '1 error' : `${errorCount} errors`}`
         statusBarItem.text = 'Standard $(error)'
-        statusBarItem.color = undefined
         statusBarItem.backgroundColor = new ThemeColor('statusBarItem.errorBackground')
       } else if (warningCount > 0) {
         statusBarItem.tooltip = `Standard Ruby: ${warningCount === 1 ? '1 warning' : `${errorCount} warnings`}`
         statusBarItem.text = 'Standard $(warning)'
-        statusBarItem.color = 'yellow'
-        statusBarItem.backgroundColor = undefined
+        statusBarItem.backgroundColor = new ThemeColor('statusBarItem.warningBackground')
       } else if (otherCount > 0) {
         statusBarItem.tooltip = `Standard Ruby: ${otherCount === 1 ? '1 hint' : `${otherCount} issues`}`
         statusBarItem.text = 'Standard $(info)'
-        statusBarItem.color = 'cyan'
         statusBarItem.backgroundColor = undefined
       } else {
         statusBarItem.tooltip = 'Standard Ruby: No issues!'
         statusBarItem.text = 'Standard $(ruby)'
-        statusBarItem.color = undefined
         statusBarItem.backgroundColor = undefined
       }
     }
