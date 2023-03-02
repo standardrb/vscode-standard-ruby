@@ -7,7 +7,9 @@ Ruby](https://github.com/testdouble/standard), maintained by your friends at
 You can install Standard Ruby from the [Visual Studio
 Marketplace](https://marketplace.visualstudio.com/items?itemName=testdouble.vscode-standard-ruby).
 
-## Capabilities
+## Language Server Capabilities
+
+These are the capabilities of this extension, each enabled by Standard's [built-in LSP server](https://github.com/testdouble/standard#language-server-protocol-support):
 
 | Capability  | Support |
 | ------------- | ------------- |
