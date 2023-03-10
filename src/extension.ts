@@ -221,20 +221,9 @@ function resolveCommandPath (): string {
   return customCommandPath
 }
 
-function getCustomCommand (): string | undefined {
-  const customCommandPath = resolveCommandPath()
-  try {
-    if (statSync(customCommandPath).isFile()) {
-      return customCommandPath
-    }
-  } catch {
-    log(`Custom commandPath not found: ${customCommandPath}`)
-  }
-}
-
-async function getCommand (): Promise<string | undefined> {
+async function getCommand (): Promise<string> {
   if (hasCustomizedCommandPath()) {
-    return getCustomCommand()
+    return resolveCommandPath()
   } else if (getConfig<string>('mode') !== 'onlyRunGlobally' && await isInBundle() === StandardBundleStatus.included) {
     return 'bundle exec standardrb'
   } else {
