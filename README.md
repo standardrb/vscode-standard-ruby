@@ -7,6 +7,17 @@ Ruby](https://github.com/testdouble/standard), maintained by your friends at
 You can install Standard Ruby from the [Visual Studio
 Marketplace](https://marketplace.visualstudio.com/items?itemName=testdouble.vscode-standard-ruby).
 
+## Language Server Capabilities
+
+These are the capabilities of this extension, each enabled by Standard's [built-in LSP server](https://github.com/testdouble/standard#language-server-protocol-support):
+
+| Capability  | Support |
+| ------------- | ------------- |
+| Diagnostics (Linting) | ✅ |
+| Document Formatting  | ✅ |
+| Execute Command ([Trigger autofix](https://github.com/testdouble/vscode-standard-ruby#manually-triggering-a-format-with-automatic-fixes)) | ✅ |
+| Everything else  | ❌  |
+
 ## Requirements
 
 * Version 1.24.3 of the [standard
