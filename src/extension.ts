@@ -1,5 +1,4 @@
 import { exec } from 'child_process'
-import { statSync } from 'fs'
 import { homedir } from 'os'
 import * as path from 'path'
 import { satisfies } from 'semver'
