@@ -279,6 +279,7 @@ function buildLanguageClientOptions (): LanguageClientOptions {
     synchronize: {
       fileEvents: [
         workspace.createFileSystemWatcher('**/.standard.yml'),
+        workspace.createFileSystemWatcher('**/.standard_todo.yml'),
         workspace.createFileSystemWatcher('**/Gemfile.lock')
       ]
     },
