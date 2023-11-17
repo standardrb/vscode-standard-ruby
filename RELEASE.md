@@ -6,6 +6,13 @@ token](https://code.visualstudio.com/api/working-with-extensions/publishing-exte
 $ yarn vsce login testdouble
 ```
 
+If you haven't, update the version:
+
+```
+$ yarn version --patch
+$ git push && git push --tags
+```
+
 Next, you should just need to run:
 
 ```
