@@ -2,9 +2,16 @@
 
 This is the official VS Code extension for [Standard
 Ruby](https://github.com/testdouble/standard), maintained by your friends at
-[Test Double](https://testdouble.com)
+[Test Double](https://testdouble.com).
 
-You can install Standard Ruby from the [Visual Studio
+If you want to lint and format your Ruby in VS Code with Standard, you can
+either use this bespoke extension or [configure Ruby LSP to use our built-in
+Ruby LSP
+add-on](https://github.com/standardrb/standard/wiki/IDE:-vscode#using-ruby-lsp),
+which additionally offers Quick Fixes via [Code Action
+support](https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#textDocument_codeAction).
+
+If you choose to use this extension, you can install it from the [Visual Studio
 Marketplace](https://marketplace.visualstudio.com/items?itemName=testdouble.vscode-standard-ruby).
 
 ## Language Server Capabilities
