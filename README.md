@@ -31,28 +31,14 @@ conforms to the [VS Code Formatting
 API](https://code.visualstudio.com/blogs/2016/11/15/formatters-best-practices#_the-formatting-api),
 several general editor settings can impact the extension's behavior as well.
 
-## Configuring the VS Code editor to use Standard Ruby
+## General editor settings
 
 There are two general editor settings that you'll want to verify are set in
 order to use Standard Ruby as your formatter.
 
-### editor.formatOnSave
-
-To automatically format your Ruby with Standard Ruby, check **Format on Save** in the
-**Formatting** settings under **Text Editor**:
-
-![Format a file on save. A formatter must be available, the file must not be saved after delay, and the editor must not be shutting down.](/docs/format-on-save.png)
-
-Or, in `settings.json`:
-
-```json
-"editor.formatOnSave": true,
-```
-
 ### editor.defaultFormatter
 
-Next, if you have installed multiple extensions that provide formatting for Ruby
-files (it's okay if you're not sure—it can be hard to tell), you can specify
+First, if you want the extension to format your Ruby files, you need to specify
 Standard as your formatter of choice by setting `editor.defaultFormatter` under
 a `"[ruby]"` section of `settings.json` like this:
 
@@ -62,7 +48,20 @@ a `"[ruby]"` section of `settings.json` like this:
 },
 ```
 
-## Configuring Standard Ruby extension options
+### editor.formatOnSave
+
+To automatically apply fixes to your Ruby with Standard Ruby, check **Format on
+Save** in the **Formatting** settings under **Text Editor**:
+
+![Format a file on save. A formatter must be available, the file must not be saved after delay, and the editor must not be shutting down.](/docs/format-on-save.png)
+
+Or, in `settings.json`:
+
+```json
+"editor.formatOnSave": true,
+```
+
+## Extension-specific settings
 
 To edit Standard Ruby's own options, first expand **Extensions** and select
 **Standard Ruby** from the sidebar of the Settings editor.
