@@ -14,6 +14,8 @@ support](https://microsoft.github.io/language-server-protocol/specifications/lsp
 If you choose to use this extension, you can install it from the [Visual Studio
 Marketplace](https://marketplace.visualstudio.com/items?itemName=testdouble.vscode-standard-ruby).
 
+It is also available in the [Open VSX Registry](https://open-vsx.org/extension/testdouble/vscode-standard-ruby).
+
 ## Language Server Capabilities
 
 These are the capabilities of this extension, each enabled by Standard's [built-in LSP server](https://github.com/testdouble/standard#language-server-protocol-support):
