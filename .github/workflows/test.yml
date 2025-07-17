@@ -1,10 +1,13 @@
-name: Main
+name: Tests
+
 on:
-  - push
-  - pull_request
+  push:
+  pull_request:
+  workflow_dispatch:
+  schedule: [cron: "42 0 7 * *"] # https://crontab.guru/#42_0_7_*_*
+
 jobs:
   build:
-    name: Build Distributables
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@master
@@ -17,8 +20,8 @@ jobs:
           yarn install --frozen-lockfile
           yarn lint
           yarn compile
+
   test:
-    name: Run Tests
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@master
