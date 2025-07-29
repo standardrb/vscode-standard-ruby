@@ -1,37 +1,37 @@
-name: Main
+name: Tests
+
 on:
-  - push
-  - pull_request
+  push:
+  pull_request:
+  workflow_dispatch:
+  schedule: [cron: "42 0 7 * *"] # https://crontab.guru/#42_0_7_*_*
+
 jobs:
   build:
-    name: Build Distributables
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@master
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '18'
-          cache: yarn
+      - uses: step-security/harden-runner@6c439dc8bdf85cadbbce9ed30d1c7b959517bc49 # v2.12.2
+        with: { egress-policy: audit }
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with: { cache: yarn, node-version-file: .node-version }
       - name: Compile extension
         run: |
           yarn install --frozen-lockfile
           yarn lint
           yarn compile
+
   test:
-    name: Run Tests
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@master
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '18'
-          cache: yarn
-      - uses: ruby/setup-ruby@v1
-        with:
-          bundler-cache: true
-          ruby-version: '3.1'
-      - name: Install a supported version of the Standard gem
-        run: gem install standard
+      - uses: step-security/harden-runner@6c439dc8bdf85cadbbce9ed30d1c7b959517bc49 # v2.12.2
+        with: { egress-policy: audit }
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with: { cache: yarn, node-version-file: .node-version }
+      - uses: ruby/setup-ruby@a4effe49ee8ee5b8b5091268c473a4628afb5651 # v1.245.0
+        with: { ruby-version: 3.4, bundler-cache: true }
+      - run: gem install standard
       - name: Compile Tests
         run: |
           yarn install --frozen-lockfile
