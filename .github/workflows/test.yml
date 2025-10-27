@@ -81,7 +81,7 @@ jobs:
           done
         if: always() && runner.os == 'Linux'
       - name: Archive Screen Recording
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: videos
           path: |
