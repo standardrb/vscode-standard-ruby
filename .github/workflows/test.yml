@@ -13,7 +13,7 @@ jobs:
       - uses: step-security/harden-runner@f4a75cfd619ee5ce8d5b864b0d183aff3c69b55a # v2.13.1
         with: { egress-policy: audit }
       - uses: actions/checkout@ff7abcd0c3c05ccf6adc123a8cd1fd4fb30fb493 # v4.2.2
-      - uses: actions/setup-node@cd2651c46231bc0d6f48d6b34433b845331235fe # v4.4.0
+      - uses: actions/setup-node@dda4788290998366da86b6a4f497909644397bb2 # v4.4.0
         with: { cache: yarn, node-version-file: .node-version }
       - name: Compile extension
         run: |
@@ -27,7 +27,7 @@ jobs:
       - uses: step-security/harden-runner@f4a75cfd619ee5ce8d5b864b0d183aff3c69b55a # v2.13.1
         with: { egress-policy: audit }
       - uses: actions/checkout@ff7abcd0c3c05ccf6adc123a8cd1fd4fb30fb493 # v4.2.2
-      - uses: actions/setup-node@cd2651c46231bc0d6f48d6b34433b845331235fe # v4.4.0
+      - uses: actions/setup-node@dda4788290998366da86b6a4f497909644397bb2 # v4.4.0
         with: { cache: yarn, node-version-file: .node-version }
       - uses: ruby/setup-ruby@d5126b9b3579e429dd52e51e68624dda2e05be25 # v1.267.0
         with: { ruby-version: 3.4, bundler-cache: true }
