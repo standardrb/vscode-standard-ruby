@@ -1,0 +1,3 @@
+# https://github.com/standardrb/standard
+# No plugins - this is a Ruby library, not Rails
+plugins: []
