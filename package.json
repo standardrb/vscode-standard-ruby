@@ -15,7 +15,7 @@
   },
   "packageManager": "yarn@1.22.19",
   "engines": {
-    "vscode": "^1.75.0"
+    "vscode": "^1.102.0"
   },
   "categories": [
     "Formatters",
