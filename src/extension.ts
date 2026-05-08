@@ -3,10 +3,10 @@ import { homedir } from 'os'
 import * as path from 'path'
 import { satisfies } from 'semver'
 import {
-  Diagnostic,
   DiagnosticSeverity,
   ExtensionContext,
   OutputChannel,
+  WorkspaceFolder,
   commands,
   window,
   workspace,
@@ -18,7 +18,6 @@ import {
   StatusBarItem
 } from 'vscode'
 import {
-  DidOpenTextDocumentNotification,
   Disposable,
   Executable,
   ExecuteCommandRequest,
@@ -26,6 +25,7 @@ import {
   LanguageClientOptions,
   RevealOutputChannelOn
 } from 'vscode-languageclient/node'
+import { ClientManager, normalizePathForGlob } from './clientManager'
 
 class ExecError extends Error {
   command: string
@@ -54,7 +54,7 @@ class ExecError extends Error {
   }
 }
 
-const promiseExec = async function (command: string, options = { cwd: getCwd() }): Promise<{ stdout: string, stderr: string }> {
+const promiseExec = async function (command: string, options: { cwd: string }): Promise<{ stdout: string, stderr: string }> {
   return await new Promise((resolve, reject) => {
     exec(command, options, (error, stdout, stderr) => {
       stdout = stdout.toString().trim()
@@ -68,13 +68,18 @@ const promiseExec = async function (command: string, options = { cwd: getCwd() }
   })
 }
 
-export let languageClient: LanguageClient | null = null
+// Multi-root workspace support via ClientManager
+let clientManager: ClientManager | null = null
 let outputChannel: OutputChannel | undefined
 let statusBarItem: StatusBarItem | undefined
-let diagnosticCache: Map<String, Diagnostic[]> = new Map()
 
-function getCwd (): string {
-  return workspace.workspaceFolders?.[0]?.uri?.fsPath ?? process.cwd()
+// Public API for accessing language clients
+export function getLanguageClient (): LanguageClient | null {
+  return clientManager?.getFirstClient() ?? null
+}
+export const languageClients = {
+  get size (): number { return clientManager?.size ?? 0 },
+  values (): IterableIterator<LanguageClient> { return clientManager?.values() ?? [].values() }
 }
 
 function log (s: string): void {
@@ -91,22 +96,26 @@ function supportedLanguage (languageId: string): boolean {
 
 function registerCommands (): Disposable[] {
   return [
-    commands.registerCommand('standardRuby.start', startLanguageServer),
-    commands.registerCommand('standardRuby.stop', stopLanguageServer),
-    commands.registerCommand('standardRuby.restart', restartLanguageServer),
+    commands.registerCommand('standardRuby.start', async () => await clientManager?.startAll()),
+    commands.registerCommand('standardRuby.stop', async () => await clientManager?.stopAll()),
+    commands.registerCommand('standardRuby.restart', async () => await clientManager?.restartAll()),
     commands.registerCommand('standardRuby.showOutputChannel', () => outputChannel?.show()),
     commands.registerCommand('standardRuby.formatAutoFixes', formatAutoFixes)
   ]
 }
 
 function registerWorkspaceListeners (): Disposable[] {
-  return [
+  const listeners: Disposable[] = [
     workspace.onDidChangeConfiguration(async event => {
       if (event.affectsConfiguration('standardRuby')) {
-        await restartLanguageServer()
+        await clientManager?.restartAll()
       }
     })
   ]
+  if (clientManager != null) {
+    listeners.push(clientManager.createWorkspaceFolderListener())
+  }
+  return listeners
 }
 
 export enum BundleStatus {
@@ -121,34 +130,34 @@ export enum StandardBundleStatus {
   errored = 2
 }
 
-async function displayBundlerError (e: ExecError): Promise<void> {
+async function displayBundlerError (e: ExecError, folder: WorkspaceFolder): Promise<void> {
   e.log()
-  log('Failed to invoke Bundler in the current workspace. After resolving the issue, run the command `Standard Ruby: Start Language Server`')
+  log(`Failed to invoke Bundler in workspace folder "${folder.name}". After resolving the issue, run the command \`Standard Ruby: Start Language Server\``)
   if (getConfig<string>('mode') !== 'enableUnconditionally') {
-    await displayError('Failed to run Bundler while initializing Standard Ruby', ['Show Output'])
+    await displayError(`Failed to run Bundler in "${folder.name}" while initializing Standard Ruby`, ['Show Output'])
   }
 }
 
-async function isValidBundlerProject (): Promise<BundleStatus> {
+async function isValidBundlerProject (folder: WorkspaceFolder): Promise<BundleStatus> {
   try {
-    await promiseExec('bundle list --name-only', { cwd: getCwd() })
+    await promiseExec('bundle list --name-only', { cwd: folder.uri.fsPath })
     return BundleStatus.valid
   } catch (e) {
     if (!(e instanceof ExecError)) return BundleStatus.errored
 
     if (e.stderr.startsWith('Could not locate Gemfile')) {
-      log('No Gemfile found in the current workspace')
+      log(`No Gemfile found in workspace folder "${folder.name}"`)
       return BundleStatus.missing
     } else {
-      await displayBundlerError(e)
+      await displayBundlerError(e, folder)
       return BundleStatus.errored
     }
   }
 }
 
-async function isInBundle (): Promise<StandardBundleStatus> {
+async function isInBundle (folder: WorkspaceFolder): Promise<StandardBundleStatus> {
   try {
-    await promiseExec('bundle show standard', { cwd: getCwd() })
+    await promiseExec('bundle show standard', { cwd: folder.uri.fsPath })
     return StandardBundleStatus.included
   } catch (e) {
     if (!(e instanceof ExecError)) return StandardBundleStatus.errored
@@ -156,34 +165,34 @@ async function isInBundle (): Promise<StandardBundleStatus> {
     if (e.stderr.startsWith('Could not locate Gemfile') || e.stderr === 'Could not find gem \'standard\'.') {
       return StandardBundleStatus.excluded
     } else {
-      await displayBundlerError(e)
+      await displayBundlerError(e, folder)
       return StandardBundleStatus.errored
     }
   }
 }
 
-async function shouldEnableIfBundleIncludesStandard (): Promise<boolean> {
-  const standardStatus = await isInBundle()
+async function shouldEnableIfBundleIncludesStandard (folder: WorkspaceFolder): Promise<boolean> {
+  const standardStatus = await isInBundle(folder)
   if (standardStatus === StandardBundleStatus.excluded) {
-    log('Disabling Standard Ruby extension, because standard isn\'t included in the bundle')
+    log(`Skipping workspace folder "${folder.name}" - standard gem not in bundle`)
   }
   return standardStatus === StandardBundleStatus.included
 }
 
-async function shouldEnableExtension (): Promise<boolean> {
+async function shouldEnableForFolder (folder: WorkspaceFolder): Promise<boolean> {
   let bundleStatus
   switch (getConfig<string>('mode')) {
     case 'enableUnconditionally':
       return true
     case 'enableViaGemfileOrMissingGemfile':
-      bundleStatus = await isValidBundlerProject()
+      bundleStatus = await isValidBundlerProject(folder)
       if (bundleStatus === BundleStatus.valid) {
-        return await shouldEnableIfBundleIncludesStandard()
+        return await shouldEnableIfBundleIncludesStandard(folder)
       } else {
         return bundleStatus === BundleStatus.missing
       }
     case 'enableViaGemfile':
-      return await shouldEnableIfBundleIncludesStandard()
+      return await shouldEnableIfBundleIncludesStandard(folder)
     case 'onlyRunGlobally':
       return true
     case 'disable':
@@ -200,13 +209,13 @@ function hasCustomizedCommandPath (): boolean {
 }
 
 const variablePattern = /\$\{([^}]*)\}/
-function resolveCommandPath (): string {
+function resolveCommandPath (folder: WorkspaceFolder): string {
   let customCommandPath = getConfig<string>('commandPath') ?? ''
 
   for (let match = variablePattern.exec(customCommandPath); match != null; match = variablePattern.exec(customCommandPath)) {
     switch (match[1]) {
       case 'cwd':
-        customCommandPath = customCommandPath.replace(match[0], process.cwd())
+        customCommandPath = customCommandPath.replace(match[0], folder.uri.fsPath)
         break
       case 'pathSeparator':
         customCommandPath = customCommandPath.replace(match[0], path.sep)
@@ -220,10 +229,10 @@ function resolveCommandPath (): string {
   return customCommandPath
 }
 
-async function getCommand (): Promise<string> {
+async function getCommand (folder: WorkspaceFolder): Promise<string> {
   if (hasCustomizedCommandPath()) {
-    return resolveCommandPath()
-  } else if (getConfig<string>('mode') !== 'onlyRunGlobally' && await isInBundle() === StandardBundleStatus.included) {
+    return resolveCommandPath(folder)
+  } else if (getConfig<string>('mode') !== 'onlyRunGlobally' && await isInBundle(folder) === StandardBundleStatus.included) {
     return 'bundle exec standardrb'
   } else {
     return 'standardrb'
@@ -231,57 +240,70 @@ async function getCommand (): Promise<string> {
 }
 
 const requiredGemVersion = '>= 1.24.3'
-async function supportedVersionOfStandard (command: string): Promise<boolean> {
+async function supportedVersionOfStandard (command: string, folder: WorkspaceFolder): Promise<boolean> {
   try {
-    const { stdout } = await promiseExec(`${command} -v`)
+    const { stdout } = await promiseExec(`${command} -v`, { cwd: folder.uri.fsPath })
     const version = stdout.trim()
     if (satisfies(version, requiredGemVersion)) {
       return true
     } else {
-      log('Disabling because the extension does not support this version of the standard gem.')
+      log(`Disabling for "${folder.name}" - unsupported standard version.`)
       log(`  Version reported by \`${command} -v\`: ${version} (${requiredGemVersion} required)`)
-      await displayError(`Unsupported standard version: ${version} (${requiredGemVersion} required)`, ['Show Output'])
+      await displayError(`Unsupported standard version in "${folder.name}": ${version} (${requiredGemVersion} required)`, ['Show Output'])
       return false
     }
   } catch (e) {
     if (e instanceof ExecError) e.log()
-    log('Failed to verify the version of standard installed, proceeding anyway…')
+    log(`Failed to verify the version of standard in "${folder.name}", proceeding anyway…`)
     return true
   }
 }
 
-async function buildExecutable (): Promise<Executable | undefined> {
-  const command = await getCommand()
+async function buildExecutable (folder: WorkspaceFolder): Promise<Executable | undefined> {
+  const command = await getCommand(folder)
   if (command == null) {
-    await displayError('Could not find Standard Ruby executable', ['Show Output', 'View Settings'])
-  } else if (await supportedVersionOfStandard(command)) {
+    await displayError(`Could not find Standard Ruby executable for "${folder.name}"`, ['Show Output', 'View Settings'])
+  } else if (await supportedVersionOfStandard(command, folder)) {
     const [exe, ...args] = (command).split(' ')
     return {
       command: exe,
-      args: args.concat('--lsp')
+      args: args.concat('--lsp'),
+      options: {
+        cwd: folder.uri.fsPath
+      }
     }
   }
 }
 
-function buildLanguageClientOptions (): LanguageClientOptions {
+function buildLanguageClientOptions (folder: WorkspaceFolder): LanguageClientOptions {
+  const globPath = normalizePathForGlob(folder.uri.fsPath)
+
+  // Create watchers and register them with the client manager
+  const watchers = [
+    workspace.createFileSystemWatcher(`${globPath}/**/.standard.yml`),
+    workspace.createFileSystemWatcher(`${globPath}/**/.standard_todo.yml`),
+    workspace.createFileSystemWatcher(`${globPath}/**/Gemfile.lock`)
+  ]
+  clientManager?.registerWatchers(folder, watchers)
+
+  // Get the diagnostic cache for this folder
+  const diagnosticCache = clientManager?.getDiagnosticCacheForFolder(folder) ?? new Map()
+
   return {
     documentSelector: [
-      { scheme: 'file', language: 'ruby' },
-      { scheme: 'file', pattern: '**/Gemfile' }
+      { scheme: 'file', language: 'ruby', pattern: `${globPath}/**/*` },
+      { scheme: 'file', pattern: `${globPath}/**/Gemfile` }
     ],
-    diagnosticCollectionName: 'standardRuby',
+    diagnosticCollectionName: `standardRuby-${folder.name}`,
+    workspaceFolder: folder,
     initializationFailedHandler: (error) => {
-      log(`Language server initialization failed: ${String(error)}`)
+      log(`Language server initialization failed for "${folder.name}": ${String(error)}`)
       return false
     },
     revealOutputChannelOn: RevealOutputChannelOn.Never,
     outputChannel,
     synchronize: {
-      fileEvents: [
-        workspace.createFileSystemWatcher('**/.standard.yml'),
-        workspace.createFileSystemWatcher('**/.standard_todo.yml'),
-        workspace.createFileSystemWatcher('**/Gemfile.lock')
-      ]
+      fileEvents: watchers
     },
     middleware: {
       provideDocumentFormattingEdits: (document, options, token, next): ProviderResult<TextEdit[]> => {
@@ -298,11 +320,15 @@ function buildLanguageClientOptions (): LanguageClientOptions {
   }
 }
 
-async function createLanguageClient (): Promise<LanguageClient | null> {
-  const run = await buildExecutable()
+async function createLanguageClient (folder: WorkspaceFolder): Promise<LanguageClient | null> {
+  const run = await buildExecutable(folder)
   if (run != null) {
-    log(`Starting language server: ${run.command} ${run.args?.join(' ') ?? ''}`)
-    return new LanguageClient('Standard Ruby', { run, debug: run }, buildLanguageClientOptions())
+    log(`Starting language server for "${folder.name}": ${run.command} ${run.args?.join(' ') ?? ''} (cwd: ${folder.uri.fsPath})`)
+    return new LanguageClient(
+      `Standard Ruby (${folder.name})`,
+      { run, debug: run },
+      buildLanguageClientOptions(folder)
+    )
   } else {
     return null
   }
@@ -312,7 +338,7 @@ async function displayError (message: string, actions: string[]): Promise<void> 
   const action = await window.showErrorMessage(message, ...actions)
   switch (action) {
     case 'Restart':
-      await restartLanguageServer()
+      await clientManager?.restartAll()
       break
     case 'Show Output':
       outputChannel?.show()
@@ -325,72 +351,25 @@ async function displayError (message: string, actions: string[]): Promise<void> 
   }
 }
 
-async function syncOpenDocumentsWithLanguageServer (languageClient: LanguageClient): Promise<void> {
-  for (const textDocument of workspace.textDocuments) {
-    if (supportedLanguage(textDocument.languageId)) {
-      await languageClient.sendNotification(
-        DidOpenTextDocumentNotification.type,
-        languageClient.code2ProtocolConverter.asOpenTextDocumentParams(textDocument)
-      )
-    }
-  }
-}
-
 async function handleActiveTextEditorChange (editor: TextEditor | undefined): Promise<void> {
-  if (languageClient == null || editor == null) return
-
-  if (supportedLanguage(editor.document.languageId) && !diagnosticCache.has(editor.document.uri.toString())) {
-    await languageClient.sendNotification(
-      DidOpenTextDocumentNotification.type,
-      languageClient.code2ProtocolConverter.asOpenTextDocumentParams(editor.document)
-    )
+  if (clientManager == null || editor == null) {
+    updateStatusBar()
+    return
   }
+
+  await clientManager.notifyDocumentOpenIfNeeded(editor.document)
   updateStatusBar()
-}
-
-async function afterStartLanguageServer (languageClient: LanguageClient): Promise<void> {
-  diagnosticCache = new Map()
-  await syncOpenDocumentsWithLanguageServer(languageClient)
-  updateStatusBar()
-}
-
-async function startLanguageServer (): Promise<void> {
-  if (languageClient != null || !(await shouldEnableExtension())) return
-
-  try {
-    languageClient = await createLanguageClient()
-    if (languageClient != null) {
-      await languageClient.start()
-      await afterStartLanguageServer(languageClient)
-    }
-  } catch (error) {
-    languageClient = null
-    await displayError(
-      'Failed to start Standard Ruby Language Server', ['Restart', 'Show Output']
-    )
-  }
-}
-
-async function stopLanguageServer (): Promise<void> {
-  if (languageClient == null) return
-
-  log('Stopping language server...')
-  await languageClient.stop()
-  languageClient = null
-}
-
-async function restartLanguageServer (): Promise<void> {
-  log('Restarting language server...')
-  await stopLanguageServer()
-  await startLanguageServer()
 }
 
 async function formatAutoFixes (): Promise<void> {
   const editor = window.activeTextEditor
-  if (editor == null || languageClient == null || !supportedLanguage(editor.document.languageId)) return
+  if (editor == null || !supportedLanguage(editor.document.languageId)) return
+
+  const client = clientManager?.getClient(editor.document)
+  if (client == null) return
 
   try {
-    await languageClient.sendRequest(ExecuteCommandRequest.type, {
+    await client.sendRequest(ExecuteCommandRequest.type, {
       command: 'standardRuby.formatAutoFixes',
       arguments: [{
         uri: editor.document.uri.toString(),
@@ -414,47 +393,68 @@ function updateStatusBar (): void {
   if (statusBarItem == null) return
   const editor = window.activeTextEditor
 
-  if (languageClient == null || editor == null || !supportedLanguage(editor.document.languageId)) {
+  if (clientManager == null || editor == null || !supportedLanguage(editor.document.languageId)) {
     statusBarItem.hide()
+    return
+  }
+
+  const client = clientManager.getClient(editor.document)
+  if (client == null) {
+    statusBarItem.hide()
+    return
+  }
+
+  const diagnostics = clientManager.getDiagnostics(editor.document)
+
+  if (diagnostics == null) {
+    statusBarItem.tooltip = 'Standard Ruby'
+    statusBarItem.text = 'Standard $(ruby)'
+    statusBarItem.color = undefined
+    statusBarItem.backgroundColor = undefined
   } else {
-    const diagnostics = diagnosticCache.get(editor.document.uri.toString())
-    if (diagnostics == null) {
-      statusBarItem.tooltip = 'Standard Ruby'
-      statusBarItem.text = 'Standard $(ruby)'
-      statusBarItem.color = undefined
+    const errorCount = diagnostics.filter((d) => d.severity === DiagnosticSeverity.Error).length
+    const warningCount = diagnostics.filter((d) => d.severity === DiagnosticSeverity.Warning).length
+    const otherCount = diagnostics.filter((d) =>
+      d.severity === DiagnosticSeverity.Information ||
+        d.severity === DiagnosticSeverity.Hint
+    ).length
+    if (errorCount > 0) {
+      statusBarItem.tooltip = `Standard Ruby: ${errorCount === 1 ? '1 error' : `${errorCount} errors`}`
+      statusBarItem.text = 'Standard $(error)'
+      statusBarItem.backgroundColor = new ThemeColor('statusBarItem.errorBackground')
+    } else if (warningCount > 0) {
+      statusBarItem.tooltip = `Standard Ruby: ${warningCount === 1 ? '1 warning' : `${warningCount} warnings`}`
+      statusBarItem.text = 'Standard $(warning)'
+      statusBarItem.backgroundColor = new ThemeColor('statusBarItem.warningBackground')
+    } else if (otherCount > 0) {
+      statusBarItem.tooltip = `Standard Ruby: ${otherCount === 1 ? '1 hint' : `${otherCount} issues`}`
+      statusBarItem.text = 'Standard $(info)'
       statusBarItem.backgroundColor = undefined
     } else {
-      const errorCount = diagnostics.filter((d) => d.severity === DiagnosticSeverity.Error).length
-      const warningCount = diagnostics.filter((d) => d.severity === DiagnosticSeverity.Warning).length
-      const otherCount = diagnostics.filter((d) =>
-        d.severity === DiagnosticSeverity.Information ||
-          d.severity === DiagnosticSeverity.Hint
-      ).length
-      if (errorCount > 0) {
-        statusBarItem.tooltip = `Standard Ruby: ${errorCount === 1 ? '1 error' : `${errorCount} errors`}`
-        statusBarItem.text = 'Standard $(error)'
-        statusBarItem.backgroundColor = new ThemeColor('statusBarItem.errorBackground')
-      } else if (warningCount > 0) {
-        statusBarItem.tooltip = `Standard Ruby: ${warningCount === 1 ? '1 warning' : `${errorCount} warnings`}`
-        statusBarItem.text = 'Standard $(warning)'
-        statusBarItem.backgroundColor = new ThemeColor('statusBarItem.warningBackground')
-      } else if (otherCount > 0) {
-        statusBarItem.tooltip = `Standard Ruby: ${otherCount === 1 ? '1 hint' : `${otherCount} issues`}`
-        statusBarItem.text = 'Standard $(info)'
-        statusBarItem.backgroundColor = undefined
-      } else {
-        statusBarItem.tooltip = 'Standard Ruby: No issues!'
-        statusBarItem.text = 'Standard $(ruby)'
-        statusBarItem.backgroundColor = undefined
-      }
+      statusBarItem.tooltip = 'Standard Ruby: No issues!'
+      statusBarItem.text = 'Standard $(ruby)'
+      statusBarItem.backgroundColor = undefined
     }
-    statusBarItem.show()
   }
+  statusBarItem.show()
 }
 
 export async function activate (context: ExtensionContext): Promise<void> {
   outputChannel = window.createOutputChannel('Standard Ruby')
   statusBarItem = createStatusBarItem()
+
+  // Initialize client manager for multi-root workspace support
+  clientManager = new ClientManager({
+    log,
+    createClient: createLanguageClient,
+    shouldEnableForFolder,
+    onError: async (message, _folder) => {
+      await displayError(message, ['Restart', 'Show Output'])
+    },
+    onStatusUpdate: updateStatusBar,
+    supportedLanguage
+  })
+
   window.onDidChangeActiveTextEditor(handleActiveTextEditorChange)
   context.subscriptions.push(
     outputChannel,
@@ -463,9 +463,10 @@ export async function activate (context: ExtensionContext): Promise<void> {
     ...registerWorkspaceListeners()
   )
 
-  await startLanguageServer()
+  log('Activating Standard Ruby extension with multi-root workspace support')
+  await clientManager.startAll()
 }
 
 export async function deactivate (): Promise<void> {
-  await stopLanguageServer()
+  await clientManager?.stopAll()
 }

@@ -1,0 +1,60 @@
+{
+  "folders": [
+    {
+      "name": "app-rails",
+      "path": "app-rails"
+    },
+    {
+      "name": "ruby-lib",
+      "path": "ruby-lib"
+    }
+  ],
+
+  "settings": {
+    // Ruby Formatting
+    // Using Standard Ruby extension for formatting
+    "[ruby]": {
+      "editor.formatOnSave": true,
+      "editor.defaultFormatter": "testdouble.vscode-standard-ruby"
+    },
+
+    // Gemfile Formatting
+    "[Gemfile]": {
+      "editor.formatOnSave": true
+    },
+
+    // Ruby LSP Configuration
+    // Tells Ruby LSP to use Standard for diagnostics/linting
+    "rubyLsp.formatter": "standard",
+    "rubyLsp.linters": ["standard"],
+
+    // Enable Ruby LSP IDE features
+    // (diagnostics and formatting intentionally disabled)
+    "rubyLsp.enabledFeatures": {
+      "codeActions": true,
+      "diagnostics": false,
+      "documentHighlights": true,
+      "documentLink": true,
+      "documentSymbols": true,
+      "foldingRanges": true,
+      "formatting": false,
+      "hover": true,
+      "inlayHint": true,
+      "onTypeFormatting": true,
+      "selectionRanges": true,
+      "semanticHighlighting": true,
+      "completion": true,
+      "codeLens": true,
+      "definition": true,
+      "workspaceSymbol": true,
+      "signatureHelp": true
+    }
+  },
+
+  "extensions": {
+    "recommendations": [
+      "shopify.ruby-lsp",
+      "testdouble.vscode-standard-ruby"
+    ]
+  }
+}

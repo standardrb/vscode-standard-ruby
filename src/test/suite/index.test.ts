@@ -25,20 +25,22 @@ suite('Standard Ruby', () => {
   suite('lifecycle commands', () => {
     test('start', async () => {
       await auto.start()
-      assert.notEqual(extension.languageClient, null)
-      assert.equal(extension.languageClient?.state, State.Running)
+      const client = extension.getLanguageClient()
+      assert.notEqual(client, null)
+      assert.equal(client?.state, State.Running)
     })
 
     test('stop', async () => {
       await auto.start()
       await auto.stop()
-      assert.equal(extension.languageClient, null)
+      assert.equal(extension.languageClients.size, 0)
     })
 
     test('restart', async () => {
       await auto.restart()
-      assert.notEqual(extension.languageClient, null)
-      assert.equal(extension.languageClient?.state, State.Running)
+      const client = extension.getLanguageClient()
+      assert.notEqual(client, null)
+      assert.equal(client?.state, State.Running)
     })
   })
 
