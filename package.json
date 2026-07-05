@@ -129,7 +129,7 @@
     "@types/mocha": "^10.0.10",
     "@types/node": "^18.0.0",
     "@types/vscode": "^1.102.0",
-    "@vscode/test-electron": "^2.5.2",
+    "@vscode/test-electron": "^3.0.0",
     "@vscode/vsce": "^3.6.0",
     "esbuild": "^0.17.6",
     "glob": "^8.0.3",
