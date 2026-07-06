@@ -85,8 +85,12 @@ function getConfig<T> (key: string): T | undefined {
   return workspace.getConfiguration('standardRuby').get<T>(key)
 }
 
+function additionalLanguages (): string[] {
+  return getConfig<string[]>('additionalLanguages') ?? []
+}
+
 function supportedLanguage (languageId: string): boolean {
-  return languageId === 'ruby' || languageId === 'gemfile'
+  return languageId === 'ruby' || languageId === 'gemfile' || additionalLanguages().includes(languageId)
 }
 
 function registerCommands (): Disposable[] {
@@ -267,6 +271,7 @@ function buildLanguageClientOptions (): LanguageClientOptions {
   return {
     documentSelector: [
       { scheme: 'file', language: 'ruby' },
+      ...additionalLanguages().map((language) => ({ scheme: 'file', language })),
       { scheme: 'file', pattern: '**/Gemfile' }
     ],
     diagnosticCollectionName: 'standardRuby',
