@@ -135,7 +135,7 @@
     "glob": "^8.0.3",
     "mocha": "11",
     "ts-standard": "^12.0.2",
-    "typescript": "^7.0.2"
+    "typescript": "6"
   },
   "ts-standard": {
     "project": "./tsconfig.json",
