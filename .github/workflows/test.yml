@@ -37,7 +37,9 @@ jobs:
           yarn install --frozen-lockfile
           yarn test-compile
       - name: Setup GUI Environment
+        if: runner.os == 'Linux'
         run: |
+          sudo apt-get update
           sudo apt-get install -yq dbus-x11 ffmpeg > /dev/null
           mkdir -p ~/bin
           mkdir -p ~/var/run
@@ -55,7 +57,6 @@ jobs:
             echo -n .
             sleep 3
           done
-        if: runner.os == 'Linux'
       - name: Start Screen Recording
         run: |
           mkdir -p $PWD/videos-raw
