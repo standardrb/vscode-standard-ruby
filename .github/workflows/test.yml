@@ -45,24 +45,25 @@ jobs:
           mkdir -p ~/var/run
           cat <<EOF > ~/bin/xvfb-shim
           #! /bin/bash
-          echo DISPLAY=\$DISPLAY >> ${GITHUB_ENV}
-          echo XAUTHORITY=\$XAUTHORITY >> ${GITHUB_ENV}
+          echo DISPLAY=\$DISPLAY >> "$GITHUB_ENV"
+          echo XAUTHORITY=\$XAUTHORITY >> "$GITHUB_ENV"
           sleep 86400
           EOF
           chmod a+x ~/bin/xvfb-shim
-          dbus-launch >> ${GITHUB_ENV}
+          dbus-launch >> "$GITHUB_ENV"
           start-stop-daemon --start --quiet --pidfile ~/var/run/Xvfb.pid --make-pidfile --background --exec /usr/bin/xvfb-run -- ~/bin/xvfb-shim
           echo -n "Waiting for Xvfb to start..."
-          while ! grep -q DISPLAY= ${GITHUB_ENV}; do
+          while ! grep -q DISPLAY= "$GITHUB_ENV"; do
             echo -n .
             sleep 3
           done
       - name: Start Screen Recording
-        run: |
-          mkdir -p $PWD/videos-raw
-          no_close=--no-close # uncomment to see ffmpeg output (i.e. leave stdio open)
-          start-stop-daemon $no_close --start --quiet --pidfile ~/var/run/ffmpeg.pid --make-pidfile --background --exec /usr/bin/ffmpeg -- -nostdin -f x11grab -video_size 1280x1024 -framerate 10 -i ${DISPLAY}.0+0,0 $PWD/videos-raw/test.mp4
         if: runner.os == 'Linux'
+        id: record_screen
+        run: |
+          mkdir -p "$PWD/videos-raw"
+          no_close=--no-close # uncomment to see ffmpeg output (i.e. leave stdio open)
+          start-stop-daemon "$no_close" --start --quiet --pidfile ~/var/run/ffmpeg.pid --make-pidfile --background --exec /usr/bin/ffmpeg -- -nostdin -f x11grab -video_size 1280x1024 -framerate 10 -i "${DISPLAY}.0+0,0" "$PWD/videos-raw/test.mp4"
       - name: Cache VS Code Binary
         id: vscode-test
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
@@ -75,21 +76,21 @@ jobs:
         run: |
           start-stop-daemon --stop --pidfile ~/var/run/ffmpeg.pid
           sleep 3
-          mkdir -p $PWD/videos
-          for f in $PWD/videos-raw/*.mp4; do
-            out=`basename $f`
-            ffmpeg -i $f -vf format=yuv420p $PWD/videos/$out
+          mkdir -p "$PWD"/videos
+          for f in "$PWD"/videos-raw/*.mp4; do
+            out=$(basename "$f")
+            ffmpeg -i "$f" -vf format=yuv420p "$PWD/videos/$out"
           done
-        if: always() && runner.os == 'Linux'
+        if: always() && steps.record_screen.outcome != 'skipped'
       - name: Archive Screen Recording
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: videos
           path: |
             videos/
-        if: always() && runner.os == 'Linux'
+        if: always() && steps.record_screen.outcome != 'skipped'
       - name: Teardown GUI Environment
         run: |
           start-stop-daemon --stop --pidfile ~/var/run/Xvfb.pid
-          kill $DBUS_SESSION_BUS_PID
-        if: always() && runner.os == 'Linux'
+          kill "$DBUS_SESSION_BUS_PID"
+        if: always() && steps.record_screen.outcome != 'skipped'
