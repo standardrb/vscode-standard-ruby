@@ -20,6 +20,8 @@ jobs:
           yarn install --frozen-lockfile
           yarn lint
           yarn compile
+      - name: Verify packaging
+        run: yarn vsce package --no-dependencies -o /tmp/extension.vsix
 
   test:
     runs-on: ubuntu-latest

@@ -531,10 +531,10 @@
   resolved "https://registry.npmjs.org/@types/semver/-/semver-7.3.13.tgz"
   integrity sha512-21cFJr9z3g5dW8B0CVI9g2O9beqaThGQ6ZFBqHfwhzLDKUxaqTIy3vnfah/UPkfOiF2pLq+tGz+W8RyCskuslw==
 
-"@types/vscode@^1.134.0":
-  version "1.134.0"
-  resolved "https://registry.yarnpkg.com/@types/vscode/-/vscode-1.134.0.tgz#4525fbf5ca2e2bea98e60a768c5c36751258ccbf"
-  integrity sha512-NDEu0hg4sF7+vvFsADsktqUJ6f80LHSZvVK2Ovo1XiQ0/VHck1O3zst+ZZyVA/uvz6vo6LcuoqU2q48YMqOwWw==
+"@types/vscode@^1.75.0":
+  version "1.138.0"
+  resolved "https://registry.yarnpkg.com/@types/vscode/-/vscode-1.138.0.tgz#516d9e50b0056a56b3daee81e0dc3ebee914ddb7"
+  integrity sha512-DhlvrucJa8n6EHst7qQcXOcjLKs/VRTQy55plLO+RN74jonYsr/t9dd66zBnAyz1tpDig0okQAxuoPHpVNje2g==
 
 "@typescript-eslint/eslint-plugin@^5.0.0":
   version "5.51.0"
