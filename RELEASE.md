@@ -1,21 +1,22 @@
-To cut a release of the extension, you must login with vsce using the project's
-[personal access
-token](https://code.visualstudio.com/api/working-with-extensions/publishing-extension#get-a-personal-access-token):
+# Releasing
 
-```
-$ yarn vsce login testdouble
-```
+Releases are fully automated by the [`Release`
+workflow](.github/workflows/release.yml). To cut one:
 
-If you haven't, update the version:
+1. Go to **Actions → Release → Run workflow**.
+2. Pick the version bump (`patch`, `minor`, or `major`) and run it.
 
-```
-$ yarn version --patch
-$ git push && git push --tags
-```
+The workflow lints and compiles, bumps the version in `package.json`, creates
+the matching `vX.Y.Z` tag, packages the extension once, and publishes it to both
+the [Open VSX Registry](https://open-vsx.org) and the [Visual Studio
+Marketplace](https://marketplace.visualstudio.com). It then pushes the version
+bump commit and tag back to `main`.
 
-Next, you should just need to run:
+## Required secrets
 
-```
-$ yarn run vsce:publish
-```
+Both are configured under the repository's Actions secrets:
 
+- `OPEN_VSX_TOKEN` — Open VSX access token.
+- `VS_MARKETPLACE_TOKEN` — Azure DevOps personal access token scoped to publish
+  under the `testdouble` publisher. See [Get a personal access
+  token](https://code.visualstudio.com/api/working-with-extensions/publishing-extension#get-a-personal-access-token).
