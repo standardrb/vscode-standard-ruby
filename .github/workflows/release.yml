@@ -1,0 +1,148 @@
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      bump:
+        description: Version bump
+        type: choice
+        default: patch
+        options: [patch, minor, major]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: step-security/harden-runner@05e31511f85b41b11d1cf0ef85d0992719546e2c # v2.21.0
+        with: { egress-policy: audit }
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with: { cache: yarn, node-version-file: .node-version }
+
+      - name: Ensure release runs from main
+        run: |
+          if [ "${{ github.ref }}" != "refs/heads/main" ]; then
+            echo "Releases must run from main; got ${{ github.ref }}" >&2
+            exit 1
+          fi
+
+      - name: Install dependencies
+        run: yarn install --frozen-lockfile
+
+      - name: Lint and compile
+        run: |
+          yarn lint
+          yarn test-compile
+
+      - name: Bump version
+        id: bump
+        run: |
+          yarn version --${{ inputs.bump }} --no-git-tag-version
+          version=$(node -p "require('./package.json').version")
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "tag=v$version" >> "$GITHUB_OUTPUT"
+          node -e "const { execSync } = require('child_process'); const files = execSync('git diff --name-only -- package.json yarn.lock', { encoding: 'utf8' }).trim().split(/\n/).filter(Boolean); console.log('files=' + JSON.stringify(files))" >> "$GITHUB_OUTPUT"
+
+      - name: Verify main has not moved
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          current_sha=$(gh api repos/${{ github.repository }}/git/ref/heads/${{ github.ref_name }} --jq .object.sha)
+          if [ "$current_sha" != "${{ github.sha }}" ]; then
+            echo "${{ github.ref_name }} moved from ${{ github.sha }} to $current_sha; rerun the release from the latest main."
+            exit 1
+          fi
+
+      - name: Publish to Open VSX Registry
+        uses: HaaLeo/publish-vscode-extension@v2
+        id: publishToOpenVSX
+        with:
+          pat: ${{ secrets.OPEN_VSX_TOKEN }}
+          dependencies: false
+          skipDuplicate: true
+
+      - name: Publish to Visual Studio Marketplace
+        uses: HaaLeo/publish-vscode-extension@v2
+        with:
+          pat: ${{ secrets.VS_MARKETPLACE_TOKEN }}
+          registryUrl: https://marketplace.visualstudio.com
+          extensionFile: ${{ steps.publishToOpenVSX.outputs.vsixPath }}
+          skipDuplicate: true
+
+      - name: Commit version bump and tag through GitHub API
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
+        env:
+          VERSION: ${{ steps.bump.outputs.version }}
+          VERSION_FILES: ${{ steps.bump.outputs.files }}
+          VERSION_TAG: ${{ steps.bump.outputs.tag }}
+        with:
+          script: |
+            const fs = require('fs')
+
+            const { owner, repo } = context.repo
+            const branch = context.ref.replace('refs/heads/', '')
+            const files = JSON.parse(process.env.VERSION_FILES)
+            const tag = process.env.VERSION_TAG
+            const version = process.env.VERSION
+
+            if (files.length === 0) {
+              throw new Error('No version files changed')
+            }
+
+            const branchRef = await github.rest.git.getRef({
+              owner,
+              repo,
+              ref: `heads/${branch}`
+            })
+            const expectedHeadOid = branchRef.data.object.sha
+            const additions = files.map((path) => ({
+              path,
+              contents: fs.readFileSync(path).toString('base64')
+            }))
+
+            const result = await github.graphql(`
+              mutation($input: CreateCommitOnBranchInput!) {
+                createCommitOnBranch(input: $input) {
+                  commit {
+                    oid
+                    signature {
+                      isValid
+                      state
+                      wasSignedByGitHub
+                    }
+                  }
+                }
+              }
+            `, {
+              input: {
+                branch: {
+                  repositoryNameWithOwner: `${owner}/${repo}`,
+                  branchName: branch
+                },
+                message: {
+                  headline: `chore: release v${version}`
+                },
+                fileChanges: {
+                  additions
+                },
+                expectedHeadOid
+              }
+            })
+            const commit = result.createCommitOnBranch.commit
+
+            await github.rest.git.createRef({
+              owner,
+              repo,
+              ref: `refs/tags/${tag}`,
+              sha: commit.oid
+            })
+
+            core.info(`Created ${commit.oid} and ${tag}`)
+            if (commit.signature) {
+              core.info(`Commit signature: signedByGitHub=${commit.signature.wasSignedByGitHub}, valid=${commit.signature.isValid}, state=${commit.signature.state}`)
+            } else {
+              core.warning('GitHub did not return signature details for the API-created commit.')
+            }
