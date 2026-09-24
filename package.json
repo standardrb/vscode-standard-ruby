@@ -143,7 +143,7 @@
     "@vscode/vsce": "^3.6.0",
     "esbuild": "^0.28.2",
     "glob": "^8.0.3",
-    "mocha": "11",
+    "mocha": "12",
     "ts-standard": "^12.0.2",
     "typescript": "^5.8.3"
   },
