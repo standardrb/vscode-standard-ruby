@@ -2,7 +2,7 @@ import * as assert from 'assert'
 import * as path from 'path'
 import { TextEncoder } from 'util'
 
-import { Uri, TextEditor, commands, window, workspace } from 'vscode'
+import { Uri, TextEditor, commands, languages, window, workspace } from 'vscode'
 
 import { WORKSPACE_DIR } from './setup'
 
@@ -10,11 +10,13 @@ export async function reset (): Promise<void> {
   await commands.executeCommand('workbench.action.closeAllEditors')
 }
 
-export async function createEditor (content: string): Promise<TextEditor> {
-  const filename = `${Math.random().toString().slice(2)}.rb`
+export async function createEditor (content: string, options: { extension?: string, languageId?: string } = {}): Promise<TextEditor> {
+  const filename = `${Math.random().toString().slice(2)}.${options.extension ?? 'rb'}`
   const uri = Uri.file(`${WORKSPACE_DIR}${path.sep}${filename}`)
   await workspace.fs.writeFile(uri, new TextEncoder().encode(content))
-  await window.showTextDocument(uri)
+  const document = await workspace.openTextDocument(uri)
+  if (options.languageId != null) await languages.setTextDocumentLanguage(document, options.languageId)
+  await window.showTextDocument(document)
   assert.ok(window.activeTextEditor)
   assert.equal(window.activeTextEditor.document.getText(), content)
   return window.activeTextEditor

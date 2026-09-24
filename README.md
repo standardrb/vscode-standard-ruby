@@ -126,6 +126,44 @@ Or, in `settings.json`:
 "standardRuby.autofix": true,
 ```
 
+### standardRuby.additionalLanguages
+
+By default the extension sends only Ruby and Gemfile documents to
+`standardrb --lsp`. If your project runs a Standard or RuboCop plugin that lints
+or formats other file types, opt those in by VS Code language ID:
+
+```json
+"standardRuby.additionalLanguages": ["erb"]
+```
+
+Use language IDs, not file extensions (`erb`, not `html.erb`). Languages listed
+here receive diagnostics and can use **Format Document**. Formatting runs RuboCop
+autocorrect through `standardrb --lsp`, so a file only changes when your Standard
+or RuboCop plugin provides an autocorrectable cop for it.
+
+Notes:
+
+- **Your config drives the results.** Offenses show up only when a plugin loaded
+  by your `.standard.yml` reports them — usually a `lint_roller` plugin such as
+  `standard-erb`. Make sure `.standard.yml` loads the plugin and lists the files.
+- **Format-on-save needs editor config.** Enabling this setting lets you run
+  **Format Document** on those files right away. For format-on-save, also set
+  `standardRuby` as the language's default formatter and turn on format-on-save:
+
+  ```json
+  "[erb]": {
+    "editor.defaultFormatter": "testdouble.vscode-standard-ruby",
+    "editor.formatOnSave": true
+  }
+  ```
+
+- **Autocorrect only.** Formatting changes a file only when a loaded plugin ships
+  a corrector for it. A validation-only cop reports diagnostics but leaves the
+  file untouched.
+- **Prefer workspace settings.** Keep this scoped to the project whose plugins
+  expect it. A broad user setting can send matching files from unrelated projects
+  that have no such plugin.
+
 ### standardRuby.commandPath
 
 As described above, the extension contains logic to determine which version of
