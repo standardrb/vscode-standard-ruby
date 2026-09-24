@@ -15,7 +15,8 @@ import {
   TextEditor,
   ThemeColor,
   StatusBarAlignment,
-  StatusBarItem
+  StatusBarItem,
+  TextDocument
 } from 'vscode'
 import {
   DidOpenTextDocumentNotification,
@@ -85,8 +86,60 @@ function getConfig<T> (key: string): T | undefined {
   return workspace.getConfiguration('standardRuby').get<T>(key)
 }
 
-function supportedLanguage (languageId: string): boolean {
-  return languageId === 'ruby' || languageId === 'gemfile'
+const BASE_FORMATTING_LANGUAGES = ['ruby', 'gemfile']
+
+// Config-free base check used by the normalizers, so normalization never depends
+// on the formatting-languages setting.
+function baseFormattingLanguage (languageId: string): boolean {
+  return BASE_FORMATTING_LANGUAGES.includes(languageId)
+}
+
+function getAdditionalLanguages (): string[] {
+  return normalizeAdditionalLanguages(getConfig<unknown>('additionalLanguages'))
+}
+
+function normalizeLanguageList (languages: unknown): string[] {
+  if (!Array.isArray(languages)) return []
+
+  const normalizedLanguages: string[] = []
+  for (const language of languages) {
+    if (typeof language !== 'string') continue
+
+    const normalizedLanguage = language.trim()
+    if (
+      normalizedLanguage.length === 0 ||
+      baseFormattingLanguage(normalizedLanguage) ||
+      normalizedLanguages.includes(normalizedLanguage)
+    ) continue
+
+    normalizedLanguages.push(normalizedLanguage)
+  }
+
+  return normalizedLanguages
+}
+
+export function normalizeAdditionalLanguages (languages: unknown): string[] {
+  return normalizeLanguageList(languages)
+}
+
+export function formattingSupportedLanguage (languageId: string, additionalLanguages = getAdditionalLanguages()): boolean {
+  return baseFormattingLanguage(languageId) || additionalLanguages.includes(languageId)
+}
+
+export function diagnosticsSupportedLanguage (languageId: string, additionalLanguages = getAdditionalLanguages()): boolean {
+  return formattingSupportedLanguage(languageId, additionalLanguages)
+}
+
+export function diagnosticsSupportedDocument (document: Pick<TextDocument, 'languageId' | 'uri'>, additionalLanguages = getAdditionalLanguages()): boolean {
+  return document.uri.scheme === 'file' && diagnosticsSupportedLanguage(document.languageId, additionalLanguages)
+}
+
+export function formattingSupportedDocument (document: Pick<TextDocument, 'languageId' | 'uri'>, additionalLanguages = getAdditionalLanguages()): boolean {
+  // Base languages format regardless of scheme (preserves untitled-.rb formatting).
+  // Additional languages require a real file path, since the server hands the path
+  // to RuboCop.
+  if (baseFormattingLanguage(document.languageId)) return true
+  return document.uri.scheme === 'file' && additionalLanguages.includes(document.languageId)
 }
 
 function registerCommands (): Disposable[] {
@@ -263,12 +316,21 @@ async function buildExecutable (): Promise<Executable | undefined> {
   }
 }
 
-function buildLanguageClientOptions (): LanguageClientOptions {
+export function buildDocumentSelector (
+  additionalLanguages: unknown = getAdditionalLanguages()
+): NonNullable<LanguageClientOptions['documentSelector']> {
+  const syncedLanguages = normalizeAdditionalLanguages(additionalLanguages)
+
+  return [
+    { scheme: 'file' as const, language: 'ruby' },
+    { scheme: 'file' as const, pattern: '**/Gemfile' },
+    ...syncedLanguages.map(language => ({ scheme: 'file' as const, language }))
+  ]
+}
+
+export function buildLanguageClientOptions (): LanguageClientOptions {
   return {
-    documentSelector: [
-      { scheme: 'file', language: 'ruby' },
-      { scheme: 'file', pattern: '**/Gemfile' }
-    ],
+    documentSelector: buildDocumentSelector(),
     diagnosticCollectionName: 'standardRuby',
     initializationFailedHandler: (error) => {
       log(`Language server initialization failed: ${String(error)}`)
@@ -285,7 +347,7 @@ function buildLanguageClientOptions (): LanguageClientOptions {
     },
     middleware: {
       provideDocumentFormattingEdits: (document, options, token, next): ProviderResult<TextEdit[]> => {
-        if (getConfig<boolean>('autofix') ?? true) {
+        if ((getConfig<boolean>('autofix') ?? true) && formattingSupportedDocument(document)) {
           return next(document, options, token)
         }
       },
@@ -327,7 +389,7 @@ async function displayError (message: string, actions: string[]): Promise<void> 
 
 async function syncOpenDocumentsWithLanguageServer (languageClient: LanguageClient): Promise<void> {
   for (const textDocument of workspace.textDocuments) {
-    if (supportedLanguage(textDocument.languageId)) {
+    if (diagnosticsSupportedDocument(textDocument)) {
       await languageClient.sendNotification(
         DidOpenTextDocumentNotification.type,
         languageClient.code2ProtocolConverter.asOpenTextDocumentParams(textDocument)
@@ -339,7 +401,7 @@ async function syncOpenDocumentsWithLanguageServer (languageClient: LanguageClie
 async function handleActiveTextEditorChange (editor: TextEditor | undefined): Promise<void> {
   if (languageClient == null || editor == null) return
 
-  if (supportedLanguage(editor.document.languageId) && !diagnosticCache.has(editor.document.uri.toString())) {
+  if (diagnosticsSupportedDocument(editor.document) && !diagnosticCache.has(editor.document.uri.toString())) {
     await languageClient.sendNotification(
       DidOpenTextDocumentNotification.type,
       languageClient.code2ProtocolConverter.asOpenTextDocumentParams(editor.document)
@@ -387,7 +449,7 @@ async function restartLanguageServer (): Promise<void> {
 
 async function formatAutoFixes (): Promise<void> {
   const editor = window.activeTextEditor
-  if (editor == null || languageClient == null || !supportedLanguage(editor.document.languageId)) return
+  if (editor == null || languageClient == null || !formattingSupportedDocument(editor.document)) return
 
   try {
     await languageClient.sendRequest(ExecuteCommandRequest.type, {
@@ -414,7 +476,7 @@ function updateStatusBar (): void {
   if (statusBarItem == null) return
   const editor = window.activeTextEditor
 
-  if (languageClient == null || editor == null || !supportedLanguage(editor.document.languageId)) {
+  if (languageClient == null || editor == null || !diagnosticsSupportedDocument(editor.document)) {
     statusBarItem.hide()
   } else {
     const diagnostics = diagnosticCache.get(editor.document.uri.toString())
