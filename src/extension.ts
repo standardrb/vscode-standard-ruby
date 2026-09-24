@@ -131,7 +131,11 @@ export function diagnosticsSupportedLanguage (languageId: string, additionalLang
 }
 
 export function diagnosticsSupportedDocument (document: Pick<TextDocument, 'languageId' | 'uri'>, additionalLanguages = getAdditionalLanguages()): boolean {
-  return document.uri.scheme === 'file' && diagnosticsSupportedLanguage(document.languageId, additionalLanguages)
+  // Base languages keep the historical manual-sync behavior for untitled docs.
+  // Additional languages require a real file path, since the server hands the
+  // path to RuboCop.
+  if (baseFormattingLanguage(document.languageId)) return true
+  return document.uri.scheme === 'file' && additionalLanguages.includes(document.languageId)
 }
 
 export function formattingSupportedDocument (document: Pick<TextDocument, 'languageId' | 'uri'>, additionalLanguages = getAdditionalLanguages()): boolean {

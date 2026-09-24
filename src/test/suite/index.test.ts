@@ -55,9 +55,13 @@ suite('Standard Ruby', () => {
       assert.equal(extension.formattingSupportedLanguage('yaml', additionalLanguages), false)
     })
 
-    test('requires file-backed documents for configured language diagnostics', async () => {
+    test('requires file-backed documents only for configured language diagnostics', async () => {
       const additionalLanguages = extension.normalizeAdditionalLanguages(['yaml'])
 
+      // Base languages keep the historical manual-sync behavior for untitled docs.
+      assert.equal(extension.diagnosticsSupportedDocument({ languageId: 'ruby', uri: Uri.parse('untitled:example.rb') }, additionalLanguages), true)
+
+      // Additional languages require a real file path.
       assert.equal(extension.diagnosticsSupportedDocument({ languageId: 'yaml', uri: Uri.file('/tmp/example.yml') }, additionalLanguages), true)
       assert.equal(extension.diagnosticsSupportedDocument({ languageId: 'yaml', uri: Uri.parse('untitled:example.yml') }, additionalLanguages), false)
       assert.equal(extension.diagnosticsSupportedDocument({ languageId: 'yaml', uri: Uri.file('/tmp/example.yml') }, []), false)
