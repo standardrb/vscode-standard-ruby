@@ -13,6 +13,16 @@ Marketplace](https://marketplace.visualstudio.com). After both publishes pass, i
 creates the version-bump commit and matching `vX.Y.Z` tag through GitHub's API so
 GitHub can mark the bot commit as verified under signed-commit branch rules.
 
+The workflow refuses to run from any branch other than `main`.
+
+## Reruns and recovery
+
+Both publish steps use `skipDuplicate`, so the workflow is safe to re-run from
+`main` after a partial failure: a registry that already has the version is
+skipped rather than treated as an error, and the run continues to the remaining
+publish, commit, and tag. One consequence: a green run does not by itself prove
+this run published — it may have skipped an already-present version.
+
 ## Required secrets
 
 Both are configured under the repository's Actions secrets:
