@@ -132,7 +132,7 @@
   },
   "dependencies": {
     "semver": "^7.8.5",
-    "vscode-languageclient": "9"
+    "vscode-languageclient": "10"
   },
   "devDependencies": {
     "@types/glob": "^8.0.0",
